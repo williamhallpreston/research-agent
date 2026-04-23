@@ -227,4 +227,4 @@ Please read it before participating.
 
 ## License
 
-[MIT](LICENSE) © 2025 Your Organisation
+[MIT](LICENSE) © 2026
