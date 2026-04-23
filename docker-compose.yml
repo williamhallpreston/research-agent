@@ -1,0 +1,92 @@
+version: "3.9"
+
+# SECURITY: All secrets come from the .env file (never hardcoded here).
+# Copy .env.example to .env and fill in real values before running.
+
+services:
+
+  # ── Research Agent ──────────────────────────────────────────────────────────
+  agent:
+    build:
+      context: .
+      target: runtime
+    image: research-agent:latest
+    restart: unless-stopped
+
+    # SECURITY: No ports exposed directly to the host — all traffic routes
+    # through the nginx reverse proxy which terminates TLS.
+    expose:
+      - "5000"
+
+    environment:
+      # SECURITY: Keys come from .env, never hardcoded.
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
+      BRAVE_API_KEY:     ${BRAVE_API_KEY}
+      FLASK_SECRET_KEY:  ${FLASK_SECRET_KEY}
+      ALLOWED_HOSTS:     ${ALLOWED_HOSTS:-localhost,127.0.0.1}
+      REPORTS_DIR:       /app/reports
+      CACHE_DIR:         /app/cache
+      DB_PATH:           /app/data/sessions.db
+      MAX_QUESTION_LEN:  ${MAX_QUESTION_LEN:-500}
+      CACHE_TTL_SECONDS: ${CACHE_TTL_SECONDS:-86400}
+
+    volumes:
+      # Persist reports, cache, and SQLite DB across container restarts.
+      # SECURITY: Bind mounts are owned by the non-root agent user (uid 1001).
+      - reports:/app/reports
+      - cache:/app/cache
+      - db:/app/data
+
+    networks:
+      - internal
+
+    # SECURITY: Drop all Linux capabilities not required by this process.
+    cap_drop:
+      - ALL
+
+    # SECURITY: Read-only root filesystem; only named volumes are writable.
+    read_only: true
+    tmpfs:
+      - /tmp
+
+    security_opt:
+      - no-new-privileges:true
+
+    healthcheck:
+      test: ["CMD", "python", "-c",
+             "import urllib.request; urllib.request.urlopen('http://localhost:5000/')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+
+  # ── Nginx reverse proxy with TLS ────────────────────────────────────────────
+  nginx:
+    image: nginx:1.27-alpine
+    restart: unless-stopped
+    ports:
+      # SECURITY: Only 443 (HTTPS) and 80 (redirect to HTTPS) are exposed.
+      # Remove port 80 if you do not want the HTTP→HTTPS redirect.
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/certs:/etc/nginx/certs:ro    # place your TLS cert+key here
+    networks:
+      - internal
+    depends_on:
+      agent:
+        condition: service_healthy
+
+# ── Named volumes ──────────────────────────────────────────────────────────────
+volumes:
+  reports:
+  cache:
+  db:
+
+# ── Networks ──────────────────────────────────────────────────────────────────
+networks:
+  internal:
+    driver: bridge
+    # SECURITY: Internal network — not accessible from host directly.
+    internal: false   # set to true if nginx is not in this compose project

@@ -1,0 +1,26 @@
+# requirements.txt
+# Production dependencies — pinned to exact versions for reproducibility.
+# Regenerate with:  pip-compile requirements.in --generate-hashes
+#
+# To update: bump the version in requirements.in and re-run pip-compile.
+# Before bumping, check https://osv.dev or run `pip-audit` for known CVEs.
+
+anthropic==0.25.1
+requests==2.32.3
+flask==3.0.3
+python-docx==1.1.2
+reportlab==4.2.0
+
+# Transitive deps pinned for supply-chain security
+certifi==2024.2.2
+charset-normalizer==3.3.2
+idna==3.7
+urllib3==2.2.1
+Werkzeug==3.0.3
+Jinja2==3.1.4
+MarkupSafe==2.1.5
+click==8.1.7
+itsdangerous==2.2.0
+blinker==1.8.2
+lxml==5.2.2
+Pillow==10.3.0
